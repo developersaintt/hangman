@@ -2,13 +2,14 @@ import React, { useEffect, useState } from 'react'
 import HangmanCharacter from './HangmanCharacter'
 import WrongGuesses from './WrongGuesses'
 import WordToGuess from './WordToGuess'
+import { getIndexes } from '../utils/GetIndexes'
+
 const axios = require('axios').default;
 
 
 function Playground() {
 
-  
-  const [gameStatus, setGameStatus] = useState('Playing');
+  const [isPlaying, setIsPlaying] = useState(1);
   const [word, setWord] = useState('');
   const [guesses, setGuesses] = useState({
     wrongGuessesCount: 0,
@@ -18,40 +19,39 @@ function Playground() {
 
   
   useEffect(() => { 
-    axios.get('https://random-words-api.vercel.app/word')
-    .then((response) => {
-      setWord(response.data[0].word.toLowerCase());
-      localStorage.setItem('word', response.data[0].word.toLowerCase());
-      window.addEventListener('keyup', (e) => keyListener(e))
-    })
-    .catch((error) => console.error(error)) 
+    if(isPlaying){
+      axios.get('https://random-words-api.vercel.app/word')
+      .then((response) => {
+        setWord(response.data[0].word.toLowerCase());
+        localStorage.setItem('word', response.data[0].word.toLowerCase());
+      })
+      .catch((error) => console.error(error)) 
+    }
      
+    // return () => window.removeEventListener('keyup', (e) => keyListener(e));  
+  }, [isPlaying]);
+  
+  useEffect(() => { 
+    window.addEventListener('keyup', (e) => keyListener(e))     
     return () => window.removeEventListener('keyup', (e) => keyListener(e));  
-  }, [gameStatus]);
-
-
-  const getIndexes = (string, char) =>{
-    let indices = [];
-    for(let i=0; i<string.length;i++) {
-      if (string[i] === char) indices.push(i);
-    } 
-    return indices;
-  }
+  }, []);
 
   const restartGame = () =>{
-    setGameStatus('Playing');
-
-    setGuesses(_guesses => ({
+    setGuesses({
       wrongGuessesCount: 0,
       wrongGuesses: [],
       correctGuesses: {},
-    })); 
+    }); 
+
+    
+    setIsPlaying(1);
+    console.log(guesses);
   }
 
   const checkGameStatus = () => { 
     let _word = localStorage.getItem('word');
     if(Object.values(guesses.correctGuesses).join('') == _word){
-      setGameStatus('Won'); 
+      setIsPlaying(0); 
     }
   }
   
@@ -59,8 +59,7 @@ function Playground() {
   const keyListener = (e) => {
     let _word = localStorage.getItem('word')
     let letterGuessed = e.key; 
-    if(!(e.keyCode >= 65 && e.keyCode <= 90)) return; 
-    console.log(_word);
+    if(!(e.keyCode >= 65 && e.keyCode <= 90)) return;
  
     if(_word.includes(letterGuessed)){ 
       
@@ -77,6 +76,8 @@ function Playground() {
       })
     }
     else{
+      if(!(guesses.wrongGuesses.includes(letterGuessed))){
+      }
       setGuesses(_guesses => ({
         ..._guesses,
         wrongGuessesCount: _guesses.wrongGuessesCount + 1,
@@ -88,13 +89,13 @@ function Playground() {
   }
 
   let winPopup;
-  if(gameStatus == "Won"){
+  if(!(isPlaying)){
     winPopup = <div className='gameover-modal'> <div className='gameover-modal__inner'> Game Over, You Won !  <span className="restart-game-trigger" onClick={() => restartGame()}> Start Again </span></div> </div>
   }
 
   return (
     <div className="playground">
-      <HangmanCharacter />
+      <HangmanCharacter wrongGuesses={guesses.wrongGuesses} />
       <WrongGuesses wrongGuesses={guesses.wrongGuesses} />
       <WordToGuess correctGuesses={guesses.correctGuesses} word={word} />
       {winPopup}
